@@ -10,6 +10,10 @@ int read(ax, cx, dx, es, bx, ds, si);
 int old_addr, old_seg;
 void call_old_int13();
 int test(ds, si);
+unsigned char inb(port);
+void outb(port, byte);
+void ser_put(byte);
+unsigned char set_get();
 
 void copy(src_seg, src_off, dst_seg, dst_off, len);
 void copy(src_seg, src_off, dst_seg, dst_off, len);
@@ -17,7 +21,7 @@ void copy(src_seg, src_off, dst_seg, dst_off, len);
 static unsigned int cs;
 static unsigned int ss;
 static unsigned char hdd_num;
-static unsigned char debug_buf[512];
+static unsigned char sector_buf[512];
 
 struct ext_read_packet_struct
 {
@@ -97,12 +101,30 @@ void printhex(num) {
     printhex8(num & 0xff);
 }
 
+void print_sector_buf()
+{
+	unsigned int i;
+
+	for (i = 0; i < 4; i++)
+	{
+#if 0
+		putchar(sector_buf[i]);
+#else
+		printhex8(sector_buf[i]);
+		putchar(' ');
+#endif
+	}
+
+	puts("\r\n");
+}
+
 unsigned int read_sectors(lba, seg, offs, n_sect)
 	unsigned int lba;
 	unsigned int seg;
 	unsigned int offs;
 	unsigned char n_sect;
 {
+#if 0
 	struct ext_read_packet_struct ext_read_packet;
 
 	ext_read_packet.dap = 0x10;
@@ -116,6 +138,27 @@ unsigned int read_sectors(lba, seg, offs, n_sect)
 	ext_read_packet.lba3 = 0;
 
 	return read(0x4200, 0, 0x0081, 0, 0, ss, &ext_read_packet);
+#else
+	unsigned int i;
+
+	ser_put(lba & 0xff);
+	ser_put((lba >> 8) & 0xff);
+	ser_put(n_sect & 0xff);
+	ser_put((n_sect >> 8) & 0xff);
+
+	for(i = 0; i < n_sect; i++)
+	{
+		unsigned int j;
+		for (j =0; j < 512; j++)
+		{
+			sector_buf[j] = ser_get();
+		}
+
+		copy(cs, sector_buf, seg, offs + i * 512, 512);
+	}
+
+	return n_sect;
+#endif
 }
 
 unsigned char get_num_drives()
@@ -130,19 +173,6 @@ void set_num_drives(n)
 unsigned char n;
 {
 	copy(ss, &n, 0x0040, 0x0075, 1);
-}
-
-void print_debug_buf()
-{
-	unsigned int i;
-
-	for (i = 0; i < 4; i++)
-	{
-		printhex8(debug_buf[i]);
-		putchar(' ');
-	}
-
-	puts("\r\n");
 }
 
 /* Registers are popped back off the stack after calling this function
@@ -208,8 +238,8 @@ void int13handler(f, di, si, bp, bx, dx, cx, ax, es, ds)
 			puts("\r\n");
 #endif
 
-//			copy(es, bx, cs, debug_buf, 512);
-//			print_debug_buf();
+//			copy(es, bx, cs, sector_buf, 512);
+//			print_sector_buf();
 
 			ax = 0x0001;
 			CLC;
@@ -262,7 +292,7 @@ void int13handler(f, di, si, bp, bx, dx, cx, ax, es, ds)
 			puts("\r\n");
 #endif
 
-//			copy(ext_read_packet.seg, ext_read_packet.offset, cs, debug_buf, 512);
+//			copy(ext_read_packet.seg, ext_read_packet.offset, cs, sector_buf, 512);
 
 			ax &= 0x00ff;
 			CLC;
@@ -359,6 +389,7 @@ void kernel_init()
 int kernel_main()
 {
 	char n;
+	unsigned int com1;
 
 	cs = getcodeseg();
 	ss = getstackseg();

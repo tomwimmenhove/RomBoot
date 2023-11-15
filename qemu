@@ -8,3 +8,7 @@ qemu-system-x86_64 -boot d -m 512 -drive file=/tmp/nothing,if=none,id=nvm -devic
 
 
 boots clover: sudo qemu-system-x86_64 -m 6G -net none -drive file=/dev/sdc,if=none,id=disk1 -device ide-hd,drive=disk1,bootindex=2 -option-rom rom_code.bin,bootindex=1
+
+From serial:
+./make.sh && sudo qemu-system-x86_64 -m 6G -net none -option-rom rom_code.bin,bootindex=1 -drive file=/mnt/wd500/images/windows.img,if=none,id=nvm -device nvme,serial=deadbeef,drive=nvm,bootindex=2 -enable-kvm -cpu core2duo-v1 -serial tcp::4444,server
+

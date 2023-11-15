@@ -197,6 +197,67 @@ _copy:
 
 	ret
 
+EXTERN _ser_put
+_ser_put:
+	push	bp
+	mov	bp, sp
+	push	ax
+	mov	dx, 0
+	mov	al, [ bp + 4 ]
+	mov	ah, 1
+	int	0x14
+	pop	ax
+	pop	bp
+	ret
+
+EXTERN _ser_get
+_ser_get:
+	mov	dx, 0
+	mov	ah, 2
+	int	0x14
+	test    ah, 0x80
+	jnz	_ser_get
+	ret
+
+;----------------------------------------------------------
+; Read byte from I/O port
+;----------------------------------------------------------
+EXTERN _inb
+_inb:
+	push	dx
+	mov	dx, 0x3F8
+	in	al, dx
+	pop	dx
+	ret
+
+	push	bp
+	mov	bp, sp
+	push	dx
+	mov	ah, 0
+	mov	dx, [ bp + 4 ]
+	in	al, dx
+	pop	dx
+	pop	bp
+	ret
+
+;----------------------------------------------------------
+; Write byte to I/O port
+;----------------------------------------------------------
+EXTERN _outb
+_outb:
+	push	bp
+	mov	bp, sp
+	push	dx
+	push	ax
+	mov	ah, 0
+	mov	dx, [ bp + 4 ]
+	mov	ax, [ bp + 6 ]
+	out	dx, al
+	pop	ax
+	pop	dx
+	pop	bp
+	ret
+
 ;----------------------------------------------------------
 ; Call the 'old' INT13h
 ;----------------------------------------------------------

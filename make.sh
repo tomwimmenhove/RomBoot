@@ -12,3 +12,5 @@ objdump -D -Mintel,i8086 -b binary -m i8086 rom_code.bin
 ./patch2pnprom rom_code.bin || exit 1
 
 nasm -o bootsect.bin bootsect.asm || exit 1
+
+gcc -o serserv serserv.c || exit 1
