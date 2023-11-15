@@ -11,8 +11,24 @@ start:
 	int 0x10                ; Otherwise, call interrupt for printing the char
 	jmp .loop               ; Next iteration of the loop
 
-halt:	hlt                     ; CPU command to halt the execution
+halt:
+	mov ax, cs
+	mov ds, ax
+	mov ax, dap
+	mov si, ax
+	mov ah, 0x42
+	int 0x13
+
+	hlt                     ; CPU command to halt the execution
 msg:	db "Hello, World!", 0   ; Our actual message to print
+
+dap:
+	db 0x10 		; dap
+	db 0x00			; zero
+	dw 0x0001		; size
+	dw 0x0002		; offset
+	dw 0x0003		; segment
+	dw 4, 0, 0, 0		; lba
 
 ;; Magic numbers
 times 510 - ($ - $$) db 0

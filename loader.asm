@@ -17,8 +17,7 @@ _main:
 	db	0x55
 	db	0xAA   ; signature
 	
-rom_size_p
-	db	rom_size
+rom_size_p db	rom_size
 	jmp	rom_init
 
 	; XXX: Fix this once we have an actual PCI device!
@@ -86,25 +85,31 @@ product_str		db	'UEFI ROM Loader',00h
 rom_init:
 	push	ds
 	push	es
+	pushf
 	pusha
-	cli
+;	cli
+
 	mov	 ax, cs
 	mov	 ds, ax
 	mov	 es, ax
 	call	_kernel_init
+
 	popa
+	popf
 	pop	es
 	pop	ds
 
 	mov	bx, rom_size_p
-	mov	al, 0
-	mov	[bx], al	; Clear 3rd byte (image size)
+;	mov	al, 0
+;	mov	[bx], al	; Clear 3rd byte (image size)
+	xor	ax, ax
+	mov	[bx], ax	; Clear 3rd byte (image size)
 
 	mov	ax, 0x0120	; Tell BIOS we hook INT 13h (bit 8) and are an IPL
 				; devive (bit 5:4).
 				; See AX bits in section 3.3 of PNPBIOS.rtf
 
-	retf			;return far to system BIOS
+	retf			; return far to system BIOS
 
 ;----------------------------------------------------------
 ; Boot Connection Vector entry
@@ -112,8 +117,9 @@ rom_init:
 bcv:
 	push	ds
 	push	es
+	pushf
 	pusha
-	cli
+;	cli
 
 	mov	ax,cs      
 	mov	ds,ax
@@ -121,6 +127,7 @@ bcv:
 	call	_kernel_main
 	  
 	popa
+	popf
 	pop	es
 	pop	ds
 	retf
@@ -195,8 +202,6 @@ _copy:
 ;----------------------------------------------------------
 EXTERN _call_old_int13
 _call_old_int13:
-;	pusha
-
 	; push return pointer and flags for old interrupt's iret
 	pushf
 	push	cs
@@ -222,7 +227,40 @@ _call_old_int13:
 	retf
 
 .ret:
-;	popa
+	ret
+
+EXTERN _printhex
+GLOBAL _test
+_test:
+	push	bp
+	mov	bp, sp
+	push	ds
+	mov	ax, [ bp + 4 ]
+	mov	ds, ax
+	mov	si, [ bp + 6 ]
+	mov	ah, 0x48
+	mov	dl, 0x81
+	call	_call_old_int13
+	pop	ds
+	pop	bp
+
+	ret
+	mov	ah, 0x41
+	mov	bx, 0x55aa
+	call	_call_old_int13
+
+	push	ax
+	call	_printhex
+	pop	ax
+
+	push	bx
+	call	_printhex
+	pop	bx
+
+	push	cx
+	call	_printhex
+	pop	cx
+
 	ret
 
 ;----------------------------------------------------------
@@ -231,19 +269,19 @@ _call_old_int13:
 EXTERN _read
 _read:
 	push	bp
-	push	ds
 	mov	bp, sp
+	push	ds
 
-	mov	bx, [ bp + 14 ]
-	mov	ax, [ bp + 12 ]
+	mov	bx, [ bp + 12 ]
+	mov	ax, [ bp + 10 ]
 	mov	es, ax
-	mov	dx, [ bp + 10 ]
-	mov	cx, [ bp + 8 ]
-	mov	ax, [ bp + 18 ]
-	mov	si, ax
+	mov	dx, [ bp + 8 ]
+	mov	cx, [ bp + 6 ]
 	mov	ax, [ bp + 16 ]
+	mov	si, ax
+	mov	ax, [ bp + 14 ]
 	mov	ds, ax
-	mov	ax, [ bp + 6 ]
+	mov	ax, [ bp + 4 ]
 
 	call	_call_old_int13
 
@@ -275,11 +313,11 @@ ISR_int13:
 	push	ds
 	push	es
 
-	; Set es and ds equal to cs
-	push	cs
-	pop	es
-	sub	sp, 2
-	pop	ds
+        ; Set es and ds equal to cs
+        push    cs
+        pop     es
+        sub     sp, 2
+        pop     ds
 
 	push	ax
 	push	cx
@@ -320,6 +358,7 @@ _hookint13:
 	mov	ax,0
 	mov	es,ax
 
+	cli
 	mov	ax, es:[0x13 * 4]
 	mov	[old_int13], ax
 	mov	ax, es:[0x13 * 4 + 2]
@@ -328,6 +367,7 @@ _hookint13:
 	mov	ax, ISR_int13
 	mov	es:[0x13 * 4], ax
 	mov	es:[0x13 * 4 + 2], cs
+	sti
 
 	pop	ds
 	pop	es
